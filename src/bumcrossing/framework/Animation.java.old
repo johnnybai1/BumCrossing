@@ -1,0 +1,114 @@
+package bumcrossing.framework;
+
+import javax.imageio.ImageIO;
+import java.awt.*;
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+
+/**
+ * Keep track of frames, current frame, animation time, and total time
+ */
+
+public class Animation {
+
+    private ArrayList<AnimationFrame> frames;
+    private int currentFrame;
+    private long animationTime; // How much time has elapsed since current image was displayed
+    private long totalDuration; // Total time that each frame (image) will be displayed for
+
+    public Animation() {
+        frames = new ArrayList<>();
+        totalDuration = 0;
+
+        // Causes animationTime and currentFrame set to 0 sequentially
+        synchronized(this) {
+            animationTime = 0;
+            currentFrame = 0;
+        }
+    }
+
+    /**
+     * Appends an AnimationFrame object to the frames ArrayList
+     */
+    public synchronized void addFrame(Image image, long duration) {
+        totalDuration = totalDuration + duration;
+        frames.add(new AnimationFrame(image, totalDuration));
+    }
+
+    public synchronized void addFrame(String filename, long duration) {
+        totalDuration = totalDuration + duration;
+        frames.add(new AnimationFrame(filename, totalDuration));
+    }
+
+    /**
+     * Update current frame with appropriate image. This method will be called repeatedly.
+     */
+    public synchronized void update(long elapsedTime) {
+        if (frames.size() > 1) {
+            // If we have more than one frame
+            animationTime = animationTime + elapsedTime; // update animationTime
+            if (animationTime >= totalDuration) {
+                // If animationTime is longer than how long it should be displayed for
+                animationTime = animationTime % totalDuration;
+                currentFrame = 0; // Set to frame 0
+            }
+            while (animationTime > getFrame(currentFrame).endTime) {
+                currentFrame = currentFrame + 1;
+            }
+        }
+    }
+
+    /**
+     * Returns the current frame's image to paint in BumCrossing
+     */
+
+    public synchronized Image getImage() {
+        if (frames.size() == 0) {
+            // If our frames list is empty
+            return null;
+        }
+        return getFrame(currentFrame).image;
+    }
+
+    /**
+     * Returns the current AnimationFrame of the animation sequence
+     */
+
+    private AnimationFrame getFrame(int i) {
+        return (AnimationFrame) frames.get(i);
+    }
+
+    private class AnimationFrame {
+
+        Image image;
+        long endTime;
+
+        public AnimationFrame(Image image, long endTime) {
+            this.image = image;
+            this.endTime = endTime;
+        }
+
+        public AnimationFrame(String filename, long endTime) {
+            loadImage(filename);
+            scaleImage(2);
+            this.endTime = endTime;
+        }
+
+        private void loadImage(String filename) {
+            try {
+                image = ImageIO.read(new File("/Users/Johnny/IdeaProjects/BumCrossing/data/" + filename));
+            }
+            catch (IOException e) {
+                System.out.println("IOException in loadImage(): " + e);
+                e.printStackTrace();
+            }
+        }
+
+        private void scaleImage(int factor) {
+            image = image.getScaledInstance(image.getWidth(null)/factor, image.getHeight(null)/factor, Image.SCALE_SMOOTH);
+        }
+
+    }
+
+}
